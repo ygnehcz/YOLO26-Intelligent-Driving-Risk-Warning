@@ -318,8 +318,101 @@ refine: calibrate forward vehicle risk warning rule
 
 ---
 
+---
+
+## 2026-05-16（续）：阶段 4 — 弱势交通参与者风险提示
+
+### 1. 功能目标
+
+在车辆风险预警基础上，新增对弱势交通参与者（VRU: Vulnerable Road User）的风险提示：
+- person（行人）
+- bicycle（骑行者）
+- motorcycle（摩托车）
+
+### 2. 实现方案
+
+#### 2.1 风险类别划分
+
+| 类别 | 常量 | 关注目标 | bbox 高度比阈值 |
+|------|------|----------|----------------|
+| 车辆 | `VEHICLE_CLASSES` | car, bus, truck | `MIN_VEHICLE_BBOX_HEIGHT_RATIO = 0.12` |
+| VRU | `VRU_CLASSES` | person, bicycle, motorcycle | `MIN_VRU_BBOX_HEIGHT_RATIO = 0.06` |
+
+说明：
+- 车辆阈值 0.12 较严格，抑制远处小车
+- VRU 阈值 0.06 较宽松（仅 6% 画面高度即触发），因为行人/骑行者目标尺寸天然较小
+
+#### 2.2 预警横幅优先级
+
+```
+1. VEHICLE + VRU 同时存在 → WARNING: VEHICLE AND VRU IN RISK ZONE
+2. 仅 VEHICLE            → WARNING: VEHICLE IN RISK ZONE
+3. 仅 VRU                → WARNING: VRU IN RISK ZONE
+4. 均无                  → 不显示横幅
+```
+
+横幅文案由 `build_banner_text(has_vehicle, has_vru)` 函数生成。
+
+#### 2.3 视觉区分
+
+| 风险类型 | 框颜色 | 标签 |
+|----------|--------|------|
+| 车辆 | 红色 Red (0,0,255) | `RISK VEHICLE (class_name)` |
+| VRU | 品红 Magenta (255,0,255) | `RISK VRU (class_name)` |
+
+新增函数：
+- `draw_risk_vru_boxes(frame, risk_vrus)` — 品红色加粗框 + VRU 标签
+- `build_banner_text(has_vehicle, has_vru)` — 横幅文案优先级逻辑
+
+#### 2.4 代码重构
+
+| 旧名称 | 新名称 | 说明 |
+|--------|--------|------|
+| `RISK_CLASS_NAMES` | `VEHICLE_CLASSES` + `VRU_CLASSES` | 拆分为两组常量 |
+| `MIN_BBOX_HEIGHT_RATIO` | `MIN_VEHICLE_BBOX_HEIGHT_RATIO` + `MIN_VRU_BBOX_HEIGHT_RATIO` | 独立阈值 |
+| `detect_risk_vehicles(result, class_names, ...)` | `detect_risk_targets(result, class_names, ...)` | 通用化，参数化 |
+| `draw_warning_banner(frame)` | `draw_warning_banner(frame, text)` | 文案由调用方传入 |
+
+`process_frame()` 返回值从 `(frame, result, warning_active)` 改为 `(frame, has_vehicle, has_vru)`。
+
+### 3. 运行统计
+
+| 指标 | 数值 |
+|------|------|
+| 总处理帧数 | 722 |
+| 车辆风险预警帧数 | 502 |
+| VRU 风险预警帧数 | 0 |
+| 车辆与 VRU 同时预警 | 0 |
+| 任一风险预警帧数 | 502 |
+| 任一风险预警占比 | 69.5% |
+
+VRU 预警帧数为 0 的原因：当前测试视频为高速/快速路场景，未见行人/骑行者出现。车辆预警统计与阶段 3.5 完全一致，确认无回归。
+
+### 4. 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `utils/warning_utils.py` | 拆分 VEHICLE/VRU 类别与阈值；`detect_risk_targets()` 通用化；新增 `draw_risk_vru_boxes()` |
+| `scripts/predict_video.py` | 双类检测；横幅优先级逻辑；新统计输出；默认输出路径更新 |
+| `README.md` | 更新进度、功能说明、规则表格 |
+| `PROJECT_LOG.md` | 追加本阶段记录 |
+
+### 5. 输出视频
+
+`outputs/videos/road_drive_01_multi_risk_warning.mp4`
+
+（阶段 3.5 输出视频 `road_drive_01_risk_warning.mp4` 保留不覆盖）
+
+### 6. Git 提交
+
+```
+feat: add vulnerable road user risk warning
+```
+
+---
+
 ## 下一步建议
 
-1. 观看新输出视频，确认预警闪烁模式是否符合预期
-2. 如需进一步降低预警率，可将 `MIN_BBOX_HEIGHT_RATIO` 提高到 0.14~0.15
-3. 后续可考虑引入 ByteTrack 多目标跟踪，实现车辆 ID 稳定追踪与 TTC 估计
+1. 观看新输出视频，确认 VRU 视觉标记效果
+2. 如需测试 VRU 功能，需准备包含行人/骑行者的城市道路视频
+3. 后续可考虑引入 ByteTrack 多目标跟踪，实现稳定的车辆/VRU ID 追踪与 TTC 估计
