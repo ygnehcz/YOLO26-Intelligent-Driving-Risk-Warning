@@ -1,7 +1,7 @@
 """
-基于 YOLO26 的道路目标检测 — 逐帧视频推理脚本
+基于 YOLO26 的道路目标检测与风险预警 — 逐帧视频推理脚本
 
-    阶段 2：从命令行调用升级为工程脚本，支持逐帧处理并预留风险预警扩展点。
+    阶段 3：在逐帧检测基础上集成前方车辆风险区域与预警逻辑。
 """
 
 import sys
@@ -10,6 +10,17 @@ from pathlib import Path
 import cv2
 from ultralytics import YOLO
 
+# ── 风险预警模块 ────────────────────────────────────────────────────────────
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.warning_utils import (
+    RISK_CLASS_NAMES,
+    detect_risk_vehicles,
+    draw_risk_zone,
+    draw_risk_vehicle_boxes,
+    draw_warning_banner,
+    get_risk_zone_polygon,
+)
+
 
 # ── 项目根目录（scripts/ 的父目录）──────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -17,7 +28,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # ── 默认路径 ────────────────────────────────────────────────────────────────
 DEFAULT_MODEL = PROJECT_ROOT / "yolo26n.pt"
 DEFAULT_INPUT = PROJECT_ROOT / "data" / "test_videos" / "road_drive_01.mp4"
-DEFAULT_OUTPUT = PROJECT_ROOT / "outputs" / "videos" / "road_drive_01_detected.mp4"
+DEFAULT_OUTPUT = PROJECT_ROOT / "outputs" / "videos" / "road_drive_01_risk_warning.mp4"
 
 # ── 日志间隔（帧）──────────────────────────────────────────────────────────
 LOG_INTERVAL = 50
@@ -71,19 +82,38 @@ def create_video_writer(output_path: Path, width: int, height: int, fps: float) 
     return writer
 
 
-def process_frame(frame, model: YOLO):
+def process_frame(frame, model: YOLO, risk_polygon: list):
     """
-    对单帧执行检测。
+    对单帧执行检测并叠加风险预警标注。
 
-    返回：(标注后的帧, 检测结果列表)
+    流程：
+        1. YOLO 检测 → 2. 筛选风险车辆 → 3. 绘制风险区域和预警信息
+
+    返回：(标注后的帧, 检测结果, warning_active)
 
     说明：
-        这里预留了扩展点。后续阶段可以在此函数内部对 results
-        做自定义风险分析（TTC、碰撞预警等），再将信息绘制到帧上。
+        在阶段 2 预留的扩展点上进行了完整实现。
+        后续可继续在此函数中增加 TTC 计算、行人/骑行者风险提示等。
     """
     results = model(frame, verbose=False)
-    annotated = results[0].plot()  # YOLO 内置标注
-    return annotated, results[0]
+    result = results[0]
+
+    # 1. YOLO 基础标注
+    annotated = result.plot()
+
+    # 2. 风险车辆检测
+    risk_vehicles = detect_risk_vehicles(result, RISK_CLASS_NAMES, risk_polygon)
+    warning_active = len(risk_vehicles) > 0
+
+    # 3. 绘制风险区域（有预警/无预警不同样式）
+    draw_risk_zone(annotated, risk_polygon, warning_active)
+
+    # 4. 对风险车辆额外醒目标记
+    if warning_active:
+        draw_risk_vehicle_boxes(annotated, risk_vehicles)
+        draw_warning_banner(annotated)
+
+    return annotated, result, warning_active
 
 
 def run_detection(
@@ -91,7 +121,9 @@ def run_detection(
     input_path: Path = DEFAULT_INPUT,
     output_path: Path = DEFAULT_OUTPUT,
 ) -> None:
-    """主检测流程：逐帧读取 → 检测 → 写入输出视频。"""
+    """主检测流程：逐帧读取 → 检测 → 风险预警 → 写入输出视频。"""
+    print(f"[INFO] === 阶段 3：启用车辆风险区域预警 ===")
+
     model = load_model(model_path)
 
     cap = open_video(input_path)
@@ -101,19 +133,27 @@ def run_detection(
         f"FPS：{info['fps']:.2f}，总帧数：{info['total_frames']}"
     )
 
+    # 基于视频尺寸计算自适应风险区域
+    risk_polygon = get_risk_zone_polygon(info["width"], info["height"])
+    print(f"[INFO] 风险区域已按 {info['width']}×{info['height']} 自适应设置")
+
     ensure_output_dir(output_path)
     writer = create_video_writer(output_path, info["width"], info["height"], info["fps"])
 
     frame_idx = 0
-    print(f"[INFO] 开始逐帧检测 ...")
+    warning_frame_count = 0
+    print(f"[INFO] 开始逐帧检测（含风险预警）...")
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
-        annotated, _ = process_frame(frame, model)
+        annotated, _, warning_active = process_frame(frame, model, risk_polygon)
         writer.write(annotated)
+
+        if warning_active:
+            warning_frame_count += 1
 
         frame_idx += 1
         if frame_idx % LOG_INTERVAL == 0:
@@ -123,7 +163,12 @@ def run_detection(
     cap.release()
     writer.release()
 
-    print(f"[INFO] 检测完成，共处理 {frame_idx} 帧")
+    # ── 汇总统计 ──────────────────────────────────────────────────────────────
+    warning_pct = (warning_frame_count / frame_idx * 100) if frame_idx > 0 else 0
+    print(f"[INFO] === 检测完成 ===")
+    print(f"[INFO] 总处理帧数：{frame_idx}")
+    print(f"[INFO] 风险预警帧数：{warning_frame_count}")
+    print(f"[INFO] 风险预警帧占比：{warning_pct:.1f}%")
     print(f"[INFO] 输出视频已保存至：{output_path.resolve()}")
 
 
