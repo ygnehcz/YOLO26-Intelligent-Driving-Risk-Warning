@@ -411,8 +411,63 @@ feat: add vulnerable road user risk warning
 
 ---
 
-## 下一步建议
+## 2026-05-16 凌晨收工记录
 
-1. 观看新输出视频，确认 VRU 视觉标记效果
-2. 如需测试 VRU 功能，需准备包含行人/骑行者的城市道路视频
-3. 后续可考虑引入 ByteTrack 多目标跟踪，实现稳定的车辆/VRU ID 追踪与 TTC 估计
+### 今天实际完成的内容
+
+#### 阶段 3.5：前方车辆风险规则校准
+
+- 从单纯"检测框底边中心点进入梯形区域"升级为：
+  **point in polygon + bbox height ratio >= 0.12**
+- 预警帧数从 722/722（100%）降为 502/722（69.5%）
+- 新增抽样分析工具脚本：`extract_frames.py`、`analyze_samples.py`
+- 对应 commit：`835d523 refine: calibrate forward vehicle risk warning rule`
+
+#### 项目首次推送到 GitHub
+
+- 远程仓库：https://github.com/ygnehcz/YOLO26-Intelligent-Driving-Risk-Warning
+- 本地分支 `master` → 重命名为 `main`
+- `main` 正确跟踪 `origin/main`
+- 推送成功后可见全部已入库文件
+
+#### 阶段 4：新增 VRU 风险提示
+
+- 拆分风险类别：
+  - `VEHICLE_CLASSES = {car, bus, truck}` → 阈值 0.12
+  - `VRU_CLASSES = {person, bicycle, motorcycle}` → 阈值 0.06
+- 代码重构：
+  - `detect_risk_vehicles()` → `detect_risk_targets()`（通用化）
+  - `draw_warning_banner()` 改为参数化文案
+  - 新增 `draw_risk_vru_boxes()`（品红色标记）
+  - 新增 `build_banner_text()` 横幅优先级逻辑
+- 横幅优先级：车辆+VRU > 仅车辆 > 仅 VRU > 无
+- 输出视频：`outputs/videos/road_drive_01_multi_risk_warning.mp4`
+- 运行统计：
+  - 总帧数 722
+  - 车辆风险预警 502 帧
+  - VRU 风险预警 0 帧
+  - 同时预警 0 帧
+  - 任一风险预警 502 帧（69.5%）
+- 对应 commit：`eac70f5 feat: add vulnerable road user risk warning`
+
+### 当前阶段判断
+
+VRU 逻辑代码已完整接入，但**当前测试视频为高速/快速路场景，无行人、骑行者或摩托车出现**，VRU 功能尚未通过真实含 VRU 的视频验证。这是明天优先要补的验证项。
+
+### 当前 Git 状态
+
+- 分支：`main`，与 `origin/main` 同步
+- 工作区：干净
+- 最新 commit：`eac70f5 feat: add vulnerable road user risk warning`
+
+---
+
+## 明天从这里继续
+
+1. **优先寻找一段包含行人 / 自行车 / 摩托车的城市道路视频**；放在 `data/test_videos/` 目录下
+2. 使用当前脚本 `python scripts/predict_video.py`（可命令行指定输入视频路径）跑通 VRU 风险提示
+3. 检查 VRU 阈值 0.06 是否过松（远处小人误触发）或过严（较近行人也未触发）
+4. 如果 VRU 验证合理，再决定进入：
+   - ByteTrack 多目标跟踪（车辆/VRU ID 稳定追踪 + TTC 估计）
+   - 或先做预警时序稳定性优化（滑动窗口 / 迟滞阈值，减少临界距离处预警闪烁）
+5. 如需，可准备多段不同场景视频，逐步构建项目验证集
