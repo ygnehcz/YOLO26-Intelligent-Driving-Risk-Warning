@@ -1,0 +1,21 @@
+# Python virtual environment
+.venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# YOLO detection run outputs
+runs/
+
+# Output videos (generated detection results)
+outputs/videos/*.mp4
+
+# Model weights (large binary)
+*.pt
+
+# Test image
+bus.jpg
+
+# Test videos (large binary)
+data/test_videos/*.mp4
