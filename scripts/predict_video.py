@@ -1,7 +1,7 @@
 """
 基于 YOLO26 的道路目标检测与风险预警 — 逐帧视频推理脚本
 
-    阶段 3：在逐帧检测基础上集成前方车辆风险区域与预警逻辑。
+    阶段 3.5：在阶段 3 基础上增加近距视觉约束（bbox 高度比阈值）校准预警逻辑。
 """
 
 import sys
@@ -13,6 +13,7 @@ from ultralytics import YOLO
 # ── 风险预警模块 ────────────────────────────────────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.warning_utils import (
+    MIN_BBOX_HEIGHT_RATIO,
     RISK_CLASS_NAMES,
     detect_risk_vehicles,
     draw_risk_zone,
@@ -101,8 +102,9 @@ def process_frame(frame, model: YOLO, risk_polygon: list):
     # 1. YOLO 基础标注
     annotated = result.plot()
 
-    # 2. 风险车辆检测
-    risk_vehicles = detect_risk_vehicles(result, RISK_CLASS_NAMES, risk_polygon)
+    # 2. 风险车辆检测（含近距视觉约束）
+    risk_vehicles = detect_risk_vehicles(result, RISK_CLASS_NAMES, risk_polygon,
+                                         frame_height=frame.shape[0])
     warning_active = len(risk_vehicles) > 0
 
     # 3. 绘制风险区域（有预警/无预警不同样式）
@@ -136,6 +138,7 @@ def run_detection(
     # 基于视频尺寸计算自适应风险区域
     risk_polygon = get_risk_zone_polygon(info["width"], info["height"])
     print(f"[INFO] 风险区域已按 {info['width']}×{info['height']} 自适应设置")
+    print(f"[INFO] Risk rule: point in polygon + bbox height ratio >= {MIN_BBOX_HEIGHT_RATIO}")
 
     ensure_output_dir(output_path)
     writer = create_video_writer(output_path, info["width"], info["height"], info["fps"])

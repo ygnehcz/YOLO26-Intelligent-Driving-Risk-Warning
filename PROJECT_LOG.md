@@ -239,3 +239,87 @@ utils/warning_utils.py       → 风险区域参数和判定逻辑
 ```
 
 修改后直接运行 `python scripts/predict_video.py` 即可看到效果。
+
+---
+
+## 2026-05-16（第二天）：阶段 3.5 — 风险预警逻辑校准
+
+### 1. 抽样分析
+
+从原始视频与预警输出视频中，按固定间隔抽取 8 个关键帧（#1, #100, #200, #300, #400, #500, #600, #700）到 `outputs/analysis_samples/`。
+
+抽样分析结论：
+- **每个抽样帧都有 1 辆车落入风险梯形区域**（前车始终在画面中），这是 100% 预警率的直接原因
+- 前车 bbox 高度比范围：0.105 ~ 0.312（帧 700 距离最近）
+- 侧面车辆（低置信度、bbox 底边 y2≈H）被正确排除在梯形外，规则本身没有误判
+- **判断**：100% 预警率源于视频内容（全程跟车），但"始终预警"削弱了预警的实际意义
+
+### 2. 规则优化
+
+采用**方案 A：目标框高度比例阈值**。
+
+在 `utils/warning_utils.py` 中增加常量 `MIN_BBOX_HEIGHT_RATIO`：
+
+```python
+MIN_BBOX_HEIGHT_RATIO = 0.12
+```
+
+新增规则：检测框高度 / 画面高度 >= 0.12 才触发预警。
+
+`detect_risk_vehicles()` 函数签名扩展：
+- 新增 `frame_height` 参数（用于计算高度比）
+- 新增 `min_bbox_height_ratio` 参数（可调整阈值）
+
+终端日志增加规则描述：
+```
+Risk rule: point in polygon + bbox height ratio >= 0.12
+```
+
+### 3. 优化效果
+
+| 指标 | 优化前 | 优化后 |
+|---|---|---|
+| 总帧数 | 722 | 722 |
+| 预警帧数 | 722 | 502 |
+| 预警占比 | 100.0% | 69.5% |
+| 减少不必要的预警 | — | 220 帧（30.5%） |
+
+规则优点：
+- 可解释性强：只有画面中足够大的前车才触发预警
+- 阈值集中可调（`MIN_BBOX_HEIGHT_RATIO` 一处修改即生效）
+- 保留了原梯形区域判定的全部逻辑，仅在其后追加轻量过滤
+
+规则局限：
+- 单帧独立判定，不考虑时序平滑（后续可引入跟踪或滑动窗口）
+- 高度比阈值受摄像头 FOV 和分辨率影响，切换场景可能需要重新标定
+- 未区分车辆类型（如卡车 vs 轿车在同一距离下高度比不同）
+
+### 4. 修改文件
+
+| 文件 | 变更 |
+|---|---|
+| `utils/warning_utils.py` | 新增 `MIN_BBOX_HEIGHT_RATIO` 常量；`detect_risk_vehicles()` 增加高度比约束 |
+| `scripts/predict_video.py` | 传入 `frame_height`；新增规则日志；更新 docstring |
+| `scripts/extract_frames.py` | 新增：帧抽取工具脚本 |
+| `scripts/analyze_samples.py` | 新增：抽样帧分析脚本 |
+| `README.md` | 更新进度与风险规则说明 |
+| `PROJECT_LOG.md` | 追加本日开发记录 |
+
+### 5. 输出
+
+- 输出视频：`outputs/videos/road_drive_01_risk_warning.mp4`
+- 抽样帧：`outputs/analysis_samples/`（16 张图片）
+
+### 6. Git 提交
+
+```
+refine: calibrate forward vehicle risk warning rule
+```
+
+---
+
+## 下一步建议
+
+1. 观看新输出视频，确认预警闪烁模式是否符合预期
+2. 如需进一步降低预警率，可将 `MIN_BBOX_HEIGHT_RATIO` 提高到 0.14~0.15
+3. 后续可考虑引入 ByteTrack 多目标跟踪，实现车辆 ID 稳定追踪与 TTC 估计

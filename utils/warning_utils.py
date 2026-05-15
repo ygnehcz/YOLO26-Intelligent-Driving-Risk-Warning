@@ -1,7 +1,7 @@
 """
 前方车辆风险区域与预警逻辑
 
-    阶段 3：在 YOLO 检测基础上，定义自适应风险区域并进行车辆预警判断。
+    阶段 3.5：在"落点进入梯形区域"基础上增加近距视觉约束（bbox 高度比）。
 """
 
 import cv2
@@ -9,6 +9,11 @@ import numpy as np
 
 # 需要监控的道路车辆类别（YOLO COCO 类别名的小写形式）
 RISK_CLASS_NAMES = {"car", "bus", "truck", "motorcycle"}
+
+# ── 预警约束阈值 ──────────────────────────────────────────────────────────────
+# 只对检测框高度 / 画面高度 >= 此值的车辆触发预警
+# 阈值越低 → 越敏感（远处小车也触发）；阈值越高 → 仅近距离车辆触发
+MIN_BBOX_HEIGHT_RATIO = 0.12
 
 
 def get_risk_zone_polygon(frame_width: int, frame_height: int) -> list:
@@ -49,14 +54,22 @@ def is_point_in_polygon(point: tuple, polygon: list) -> bool:
     return inside
 
 
-def detect_risk_vehicles(result, class_names: set, polygon: list) -> list:
+def detect_risk_vehicles(result, class_names: set, polygon: list,
+                         frame_height: int = 1080,
+                         min_bbox_height_ratio: float = MIN_BBOX_HEIGHT_RATIO) -> list:
     """
-    从 YOLO 检测结果中筛选落入风险区域的车辆。
+    从 YOLO 检测结果中筛选落入风险区域且满足近距约束的车辆。
+
+    判定规则（两层）：
+        1. 检测框底边中心点落入风险梯形区域
+        2. 检测框高度 / 画面高度 >= min_bbox_height_ratio（抑制远处小车）
 
     Args:
         result: ultralytics Results 对象
         class_names: 关注类别名称集合（小写）
         polygon: 风险区域多边形顶点
+        frame_height: 画面高度（像素）
+        min_bbox_height_ratio: 最小 bbox 高度占比阈值
 
     Returns:
         list[dict]: 每个元素包含 box (x1,y1,x2,y2), class_name, confidence
@@ -75,12 +88,19 @@ def detect_risk_vehicles(result, class_names: set, polygon: list) -> list:
         x1, y1, x2, y2 = box.xyxy[0].tolist()
         bottom_center = ((x1 + x2) / 2.0, y2)
 
-        if is_point_in_polygon(bottom_center, polygon):
-            risk_vehicles.append({
-                "box": (int(x1), int(y1), int(x2), int(y2)),
-                "class_name": cls_name,
-                "confidence": float(box.conf[0]),
-            })
+        if not is_point_in_polygon(bottom_center, polygon):
+            continue
+
+        # 近距视觉约束：bbox 高度占比不足 → 视为远处车辆，不触发预警
+        bbox_h = y2 - y1
+        if bbox_h / frame_height < min_bbox_height_ratio:
+            continue
+
+        risk_vehicles.append({
+            "box": (int(x1), int(y1), int(x2), int(y2)),
+            "class_name": cls_name,
+            "confidence": float(box.conf[0]),
+        })
 
     return risk_vehicles
 

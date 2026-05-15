@@ -11,6 +11,9 @@ runs/
 # Output videos (generated detection results)
 outputs/videos/*.mp4
 
+# Analysis sample frames (generated)
+outputs/analysis_samples/
+
 # Model weights (large binary)
 *.pt
 
