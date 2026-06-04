@@ -808,3 +808,58 @@ feat: add track-based stable risk filtering
 2. **风险梯形区域重设计**（当前高预警率的核心瓶颈，稳定过滤只解决了小部分问题）
 3. **车辆 + VRU 同时场景**：仍缺少同时含两类目标的测试视频
 4. 后续方向：轨迹线绘制、TTC 估计、多场景验证集
+
+---
+
+## 2026-06-04（续）：阶段 7 — 项目展示与 README 强化
+
+### 1. 展示资源
+
+创建 `assets/` 目录，从阶段 6 输出视频中抽取 4 张效果图：
+
+| 图片 | 来源 | 内容 |
+|------|------|------|
+| `assets/vehicle_risk_01.jpg` | road_drive_01 (frame 550) | STABLE WARNING 横幅 + 前方车辆红色标记 |
+| `assets/vehicle_risk_02.jpg` | road_drive_01 (frame 350) | 绿色 Track ID 框 + STABLE RISK VEHICLE |
+| `assets/vru_risk_01.jpg` | road_city_vru_01 (frame 1350) | STABLE WARNING + 品红 VRU 标记 |
+| `assets/vru_risk_02.jpg` | road_city_vru_01 (frame 1650) | 密集行人场景 + 红色风险区域 |
+
+所有图片 < 220 KB，JPEG 85% 质量，已纳入版本控制。
+
+### 2. README 增强
+
+重写 README.md，新增以下章节：
+
+- **效果展示**：4 张演示图片，分车辆/VRU 两个场景
+- **技术流程**：Mermaid 流程图（Input → Detection → Tracking → Risk → Filtering → Output）
+- **功能特点**：6 项核心能力
+- **项目结构**：更新 `assets/` 目录
+- **快速开始**：三类运行命令
+- **稳定风险过滤**：>= 5 帧规则说明
+- **视觉区分**：5 级标签表格
+- **项目局限**：5 项已知限制
+- **后续计划**：6 项待做任务（checkbox 格式）
+
+### 3. 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `assets/` (4 jpg) | 新增：4 张展示效果图 |
+| `README.md` | 大幅重写：展示图片、流程图、功能特点、局限、后续计划 |
+| `PROJECT_LOG.md` | 追加阶段 7 记录 |
+
+### 4. Git 提交
+
+```
+docs: enhance README with visual results
+```
+
+---
+
+## 明天从这里继续
+
+1. **轨迹线绘制**：基于 Track ID 历史位置绘制运动轨迹
+2. **时序平滑**：增加滑动窗口 / 迟滞阈值，减少临界闪烁
+3. **风险梯形区域重设计**（当前高预警率的核心瓶颈）
+4. **车辆 + VRU 同时场景**：寻找同时含两类目标的测试视频
+5. 后续可做：TTC 估计、GUI 可视化、车道线检测

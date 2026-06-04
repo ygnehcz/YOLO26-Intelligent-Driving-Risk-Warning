@@ -1,39 +1,89 @@
 # YOLO26 智能驾驶道路参与者检测与风险预警系统
 
-基于 YOLO26 的智能驾驶道路目标检测与风险预警系统，支持对车载视频进行逐帧检测、车辆风险预警与弱势交通参与者（VRU）风险提示。
+基于 **YOLO26** 与 **ByteTrack** 的智能驾驶道路目标检测与风险预警系统。支持对车载视频进行逐帧检测、车辆风险预警、弱势交通参与者（VRU）风险提示，以及基于 Track ID 的稳定风险过滤。
 
-## 当前进度
+## 效果展示
 
-- [x] 已完成 YOLO26 基础图片推理验证
-- [x] 已完成道路视频逐帧推理工程脚本
-- [x] 已生成首个智能驾驶道路检测结果视频
-- [x] 已完成前方车辆风险区域绘制
-- [x] 已完成基于图像空间区域的车辆风险预警提示
-- [x] 已完成风险预警逻辑校准（增加近距视觉约束：bbox 高度比阈值）
-- [x] 已完成弱势交通参与者（VRU）风险提示
-- [x] 已完成 VRU 风险阈值校准（0.06 → 0.10，经实景视频验证）
-- [x] 已完成 ByteTrack 多目标跟踪与 Track ID 标注
-- [x] 已完成风险目标持续帧数统计
-- [x] 已完成基于 Track ID 的稳定风险过滤（>= 5 帧）
+### 车辆风险预警（快速路跟车场景）
+
+![Vehicle Risk 01](assets/vehicle_risk_01.jpg)
+
+> STABLE WARNING: VEHICLE RISK — 前方车辆落入风险梯形区域，触发稳定车辆风险预警。
+
+![Vehicle Risk 02](assets/vehicle_risk_02.jpg)
+
+> 绿色框显示 Track ID，红色 STABLE RISK VEHICLE 标记已确认的风险车辆。
+
+### VRU 风险预警（城市行人/自行车场景）
+
+![VRU Risk 01](assets/vru_risk_01.jpg)
+
+> STABLE WARNING: VRU RISK — 多个行人/骑行者被稳定追踪并标记为 VRU 风险。
+
+![VRU Risk 02](assets/vru_risk_02.jpg)
+
+> 品红色 STABLE RISK VRU 标记行人，绿色框显示 Track ID，红色风险区域与黄色正常区域对比。
+
+---
+
+## 技术流程
+
+```mermaid
+flowchart LR
+    A[Input Video] --> B[YOLO26 Detection]
+    B --> C[ByteTrack Tracking]
+    C --> D[Risk Zone Judgment]
+    D --> E[Track-based Stable Filtering]
+    E --> F[Warning Visualization]
+    F --> G[Output Video]
+```
+
+1. **YOLO26 Detection** — 逐帧检测道路参与者（车辆、行人、自行车、摩托车等）
+2. **ByteTrack Tracking** — 为每个目标分配稳定 Track ID
+3. **Risk Zone Judgment** — 判断目标是否落入前方风险梯形区域 + bbox 高度比约束
+4. **Track-based Stable Filtering** — 同一 Track ID 累计 >= 5 帧风险帧才触发稳定预警
+5. **Warning Visualization** — 叠加风险区域、RISK/STABLE 标记、预警横幅
+6. **Output Video** — 输出带标注的视频与统计信息
+
+---
+
+## 功能特点
+
+- **YOLO26 道路目标检测** — 基于 Ultralytics YOLO26 nano，CPU 可运行
+- **车辆风险区域预警** — 前方梯形风险区域 + 近距视觉约束（bbox 高度比 >= 0.12）
+- **VRU 风险提示** — 行人/自行车/摩托车独立判定，视觉区分品红色标记
+- **ByteTrack 多目标跟踪** — 为每个目标分配稳定 Track ID
+- **稳定风险过滤** — 基于 Track ID 累计帧数过滤单帧误检和短暂闪烁
+- **统计信息输出** — 总帧数、风险帧数、风险占比、各 ID 持续帧数
+
+---
 
 ## 项目结构
 
 ```
+├── assets/                         # README 展示图片（入 Git）
+│   ├── vehicle_risk_01.jpg
+│   ├── vehicle_risk_02.jpg
+│   ├── vru_risk_01.jpg
+│   └── vru_risk_02.jpg
 ├── data/
-│   └── test_videos/          # 测试视频（不入库）
+│   └── test_videos/                # 测试视频（不入库）
 ├── scripts/
-│   ├── predict_video.py      # 逐帧视频推理脚本（主入口）
-│   ├── track_video.py         # ByteTrack 多目标跟踪 + 风险预警脚本
-│   ├── extract_frames.py     # 帧抽取工具
-│   └── analyze_samples.py    # 抽样帧分析工具
+│   ├── predict_video.py            # 逐帧检测 + 风险预警（主入口）
+│   ├── track_video.py              # ByteTrack 跟踪 + 稳定风险过滤
+│   ├── extract_frames.py           # 帧抽取工具
+│   └── analyze_samples.py          # 抽样帧分析工具
 ├── utils/
 │   ├── __init__.py
-│   └── warning_utils.py      # 风险区域、双类预警判定、绘制工具
+│   └── warning_utils.py            # 风险区域、双类预警判定、绘制工具
 ├── outputs/
-│   └── videos/               # 检测结果视频（不入库）
+│   └── videos/                     # 检测结果视频（不入库）
 ├── .gitignore
+├── PROJECT_LOG.md                  # 项目开发记录
 └── README.md
 ```
+
+---
 
 ## 快速开始
 
@@ -43,63 +93,21 @@ python -m venv .venv
 .venv/Scripts/activate
 pip install ultralytics opencv-python
 
-# 运行视频检测
+# 基础风险检测（逐帧检测 + 风险预警）
 python scripts/predict_video.py
-```
 
-输出视频将保存在 `outputs/videos/` 目录下。
-
-## 测试视频
-
-项目当前使用两个代表性测试视频，分别验证车辆风险预警与 VRU 风险提示。测试视频和输出视频因体积较大，已通过 `.gitignore` 排除，不上传 GitHub。
-
-### 1. road_drive_01.mp4 — 车辆风险验证
-
-| 属性 | 说明 |
-|------|------|
-| 场景 | 快速路 / 跟车道路场景 |
-| 用途 | 验证车辆风险预警逻辑 |
-| 主要验证 | car / bus / truck 检测，前方风险梯形区域，车辆 bbox height ratio >= 0.12 的近距视觉约束 |
-| 输出 | `outputs/videos/road_drive_01_multi_risk_warning.mp4` |
-
-### 2. road_city_vru_01.mp4 — VRU 风险验证
-
-| 属性 | 说明 |
-|------|------|
-| 场景 | 城市道路 / 行人 / 自行车 / 摩托车场景 |
-| 用途 | 验证 VRU 风险提示 |
-| 主要验证 | person / bicycle / motorcycle 检测，RISK VRU 标记，VRU bbox height ratio >= 0.10 的校准阈值 |
-| 输出 | `outputs/videos/road_city_vru_01_multi_risk_warning_vru010.mp4` |
-
-## 多目标跟踪与稳定风险过滤
-
-使用 ByteTrack 为每个检测目标分配稳定 Track ID，并通过累计风险帧数实现稳定风险过滤，减少单帧误检和短暂闪烁。
-
-**稳定风险判定**：同一 Track ID 在风险区累计帧数 >= `STABLE_RISK_MIN_FRAMES`（默认 5）时，触发稳定风险预警。
-
-```bash
-# 运行跟踪（默认使用 road_drive_01.mp4，含稳定风险过滤）
+# ByteTrack 跟踪 + 稳定风险过滤
 python scripts/track_video.py
 
-# 指定输入/输出
-python scripts/track_video.py --input data/test_videos/road_city_vru_01.mp4 --output outputs/videos/road_city_vru_01_tracked_stable_warning.mp4
+# 指定城市 VRU 视频
+python scripts/track_video.py \
+  --input data/test_videos/road_city_vru_01.mp4 \
+  --output outputs/videos/road_city_vru_01_tracked_stable_warning.mp4
 ```
 
-跟踪输出视频中：
-- 绿色框 + `class ID:#` — 普通目标
-- 红色粗框 + `RISK VEHICLE` — 车辆风险（未达稳定阈值）
-- 品红粗框 + `RISK VRU` — VRU 风险（未达稳定阈值）
-- 红色粗框 + `STABLE RISK VEHICLE` — 稳定车辆风险
-- 品红粗框 + `STABLE RISK VRU` — 稳定 VRU 风险
+输出视频保存在 `outputs/videos/` 目录下。
 
-### 跟踪统计（含稳定过滤）
-
-| 测试视频 | 帧数 | ID 数 | 原始车辆风险 | 原始 VRU 风险 | 稳定车辆风险 | 稳定 VRU 风险 | 原始→稳定 |
-|----------|------|-------|-------------|--------------|-------------|--------------|-----------|
-| road_drive_01.mp4 | 722 | 1 | 502 (69.5%) | 0 | 498 (69.0%) | 0 | −4 帧 |
-| road_city_vru_01.mp4 | 1800 | 316 | 0 | 1724 (95.8%) | 0 | 1687 (93.7%) | −37 帧 |
-
-稳定过滤有效移除了每个目标首次出现的前 4 帧（累计未达阈值）和短命 ID（< 5 帧）的瞬时噪声。
+---
 
 ## 风险预警规则
 
@@ -110,38 +118,81 @@ python scripts/track_video.py --input data/test_videos/road_city_vru_01.mp4 --ou
 | 车辆 (Vehicle) | car, bus, truck | >= 0.12 |
 | 弱势交通参与者 (VRU) | person, bicycle, motorcycle | >= 0.10 |
 
-> VRU 阈值 0.10 经 `road_city_vru_01.mp4` 城市行人/自行车实景视频校准，可过滤极远小目标，近处行人/骑行者仍正常触发。
+> VRU 阈值 0.10 经实景城市行人/自行车视频校准，可过滤极远小目标，近处行人/骑行者仍正常触发。
 
-### 判定规则
+### 判定规则（两层）
 
-所有目标均需满足两层判定：
-1. 检测框底边中心点落入前方风险梯形区域
+1. 检测框底边中心点落入前方风险梯形区域（射线法）
 2. 检测框高度 / 画面高度 >= 对应阈值
+
+### 稳定风险过滤
+
+同一 Track ID 在风险区累计帧数 >= **5** 帧时，触发稳定风险预警（`STABLE RISK VEHICLE` / `STABLE RISK VRU`），减少单帧误检和短暂闪烁。
+
+### 视觉区分
+
+| 风险级别 | 框颜色 | 标签 |
+|----------|--------|------|
+| 普通目标 | 绿色 | `class_name ID:#` |
+| 车辆风险（未稳定） | 红色粗框 | `RISK VEHICLE` |
+| VRU 风险（未稳定） | 品红粗框 | `RISK VRU` |
+| 稳定车辆风险 | 红色粗框 | `STABLE RISK VEHICLE` |
+| 稳定 VRU 风险 | 品红粗框 | `STABLE RISK VRU` |
 
 ### 预警横幅优先级
 
 | 条件 | 横幅文案 |
 |------|----------|
-| 车辆 + VRU 同时存在 | WARNING: VEHICLE AND VRU IN RISK ZONE |
-| 仅车辆 | WARNING: VEHICLE IN RISK ZONE |
-| 仅 VRU | WARNING: VRU IN RISK ZONE |
-| 无风险 | 不显示 |
-
-### 视觉区分
-
-- 车辆风险框：红色 (Red) + `RISK VEHICLE` 标签
-- VRU 风险框：品红色 (Magenta) + `RISK VRU` 标签
-- 稳定车辆风险框：红色 (Red) + `STABLE RISK VEHICLE` 标签
-- 稳定 VRU 风险框：品红色 (Magenta) + `STABLE RISK VRU` 标签
-
-### 横幅优先级
-
-| 条件 | 横幅文案 |
-|------|----------|
-| 稳定车辆 + 稳定 VRU 同时存在 | STABLE WARNING: VEHICLE AND VRU RISK |
+| 稳定车辆 + 稳定 VRU | STABLE WARNING: VEHICLE AND VRU RISK |
 | 仅稳定车辆 | STABLE WARNING: VEHICLE RISK |
 | 仅稳定 VRU | STABLE WARNING: VRU RISK |
-| 原始车辆 + 原始 VRU（未达稳定） | WARNING: VEHICLE AND VRU IN RISK ZONE |
-| 仅原始车辆 | WARNING: VEHICLE IN RISK ZONE |
-| 仅原始 VRU | WARNING: VRU IN RISK ZONE |
+| 车辆 + VRU（未稳定） | WARNING: VEHICLE AND VRU IN RISK ZONE |
+| 仅车辆（未稳定） | WARNING: VEHICLE IN RISK ZONE |
+| 仅 VRU（未稳定） | WARNING: VRU IN RISK ZONE |
 | 无风险 | 不显示 |
+
+---
+
+## 测试视频
+
+项目使用两个代表性测试视频，覆盖车辆风险与 VRU 风险两个维度。测试视频和输出视频因体积较大，已通过 `.gitignore` 排除。
+
+| 视频 | 场景 | 验证目标 | 帧数 | 稳定风险占比 |
+|------|------|----------|------|-------------|
+| `road_drive_01.mp4` | 快速路 / 跟车 | 车辆风险预警 | 722 | 69.0% |
+| `road_city_vru_01.mp4` | 城市道路 / 行人自行车 | VRU 风险提示 | 1800 | 93.7% |
+
+---
+
+## 项目局限
+
+- **未使用真实距离估计** — 风险判定基于图像空间（bbox 高度比 + 梯形区域），非物理距离
+- **风险区域依赖摄像头视角** — 切换摄像头或安装位置需重新标定梯形坐标和阈值
+- **Track ID 碎片化** — 行人密集场景下 ByteTrack 可能产生短命 ID，需累计帧数过滤
+- **未做车道线/可行驶区域分割** — 无法区分本车道与相邻车道
+- **暂未做 GUI** — 当前为命令行脚本，无图形交互界面
+
+---
+
+## 后续计划
+
+- [ ] 轨迹线绘制（基于 Track ID 历史位置）
+- [ ] 预警迟滞 / 滑动窗口平滑（减少临界帧闪烁）
+- [ ] 风险梯形区域自适应标定
+- [ ] 更多道路场景测试视频
+- [ ] GUI 可视化（可选）
+- [ ] 接入车道线检测（可选）
+
+---
+
+## 当前进度
+
+- [x] YOLO26 基础图片推理验证
+- [x] 道路视频逐帧推理工程脚本
+- [x] 前方车辆风险区域绘制与预警
+- [x] 风险预警逻辑校准（bbox 高度比阈值）
+- [x] 弱势交通参与者（VRU）风险提示
+- [x] VRU 风险阈值校准（0.06 → 0.10）
+- [x] ByteTrack 多目标跟踪与 Track ID 标注
+- [x] 基于 Track ID 的稳定风险过滤（>= 5 帧）
+- [x] 项目展示与 README 强化
