@@ -154,24 +154,26 @@ def draw_warning_banner(frame: np.ndarray, text: str) -> None:
                 font_scale, (255, 255, 255), thickness)
 
 
-def draw_risk_vehicle_boxes(frame: np.ndarray, risk_vehicles: list) -> None:
-    """对每个风险车辆绘制加粗红色框 + RISK VEHICLE 标签。"""
+def draw_risk_vehicle_boxes(frame: np.ndarray, risk_vehicles: list,
+                           label_prefix: str = "RISK VEHICLE") -> None:
+    """对每个风险车辆绘制加粗红色框 + 风险标签（前缀可定制）。"""
     for v in risk_vehicles:
         x1, y1, x2, y2 = v["box"]
         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 4)
-        label = f"RISK VEHICLE ({v['class_name']})"
+        label = f"{label_prefix} ({v['class_name']})"
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
         cv2.rectangle(frame, (x1, y1 - th - 6), (x1 + tw + 4, y1 - 2), (0, 0, 255), -1)
         cv2.putText(frame, label, (x1 + 2, y1 - 4),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
 
-def draw_risk_vru_boxes(frame: np.ndarray, risk_vrus: list) -> None:
-    """对每个 VRU 风险目标绘制加粗品红色框 + RISK VRU 标签。"""
+def draw_risk_vru_boxes(frame: np.ndarray, risk_vrus: list,
+                        label_prefix: str = "RISK VRU") -> None:
+    """对每个 VRU 风险目标绘制加粗品红色框 + 风险标签（前缀可定制）。"""
     for v in risk_vrus:
         x1, y1, x2, y2 = v["box"]
         cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 4)
-        label = f"RISK VRU ({v['class_name']})"
+        label = f"{label_prefix} ({v['class_name']})"
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
         cv2.rectangle(frame, (x1, y1 - th - 6), (x1 + tw + 4, y1 - 2), (255, 0, 255), -1)
         cv2.putText(frame, label, (x1 + 2, y1 - 4),

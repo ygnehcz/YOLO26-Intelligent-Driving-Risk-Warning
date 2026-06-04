@@ -728,3 +728,83 @@ feat: add ByteTrack multi-object tracking
 2. **风险梯形区域重设计**（当前高预警率的核心瓶颈）
 3. **寻找同时含车辆 + VRU 的视频**，验证"车辆+VRU 同时预警"横幅路径
 4. 后续可增加轨迹线绘制、TTC 估计等高级功能
+
+---
+
+## 2026-06-04（续）：阶段 6 — 基于 Track ID 的稳定风险过滤
+
+### 1. 功能目标
+
+利用 ByteTrack 多目标跟踪的 Track ID，对风险目标做累积帧数过滤：
+- 只有同一 Track ID 在风险区累计 >= `STABLE_RISK_MIN_FRAMES`（= 5）帧时，才触发稳定风险预警
+- 减少单帧误检、短暂 ID 碎片、临界帧闪烁导致的虚假报警
+
+### 2. 实现方案
+
+- **常量**：`STABLE_RISK_MIN_FRAMES = 5`
+- **累计计数**：`risk_frame_counter = defaultdict(int)`，逐帧累加每个 Track ID 出现在风险区的次数
+- **逐帧判定**：检测风险目标 → 更新该 ID 的累计计数 → 计数 >= 5 → 标记为稳定风险
+- **视觉区分**：
+  - 稳定车辆：`STABLE RISK VEHICLE` 标签
+  - 稳定 VRU：`STABLE RISK VRU` 标签
+  - 横幅：`STABLE WARNING: VEHICLE RISK` / `STABLE WARNING: VRU RISK` 等
+  - 未达稳定阈值的风险目标仍显示原始 `RISK VEHICLE` / `RISK VRU`（降级横幅）
+
+### 3. 运行统计
+
+#### road_drive_01.mp4
+
+| 指标 | 原始风险 | 稳定风险 | 变化 |
+|------|---------|---------|------|
+| 车辆风险帧数 | 502 (69.5%) | 498 (69.0%) | −4 帧 |
+| VRU 风险帧数 | 0 | 0 | — |
+
+车辆 ID 1 累计 502 帧风险帧，第 5 帧起转为稳定。过滤的 4 帧为首次进入风险区到累计达标之间的缓冲期。
+
+#### road_city_vru_01.mp4
+
+| 指标 | 原始风险 | 稳定风险 | 变化 |
+|------|---------|---------|------|
+| 车辆风险帧数 | 0 | 0 | — |
+| VRU 风险帧数 | 1724 (95.8%) | 1687 (93.7%) | −37 帧 (2.1%) |
+
+316 个唯一 ID 中，180 个累计 >= 5 帧进入稳定风险统计，136 个短命 ID（1-4 帧）被过滤。
+稳定过滤有效移除了 ByteTrack 碎片化产生的瞬时 ID 噪声。
+
+### 4. 输出视频
+
+| 视频 | 输出路径 |
+|------|----------|
+| road_drive_01 | `outputs/videos/road_drive_01_tracked_stable_warning.mp4` |
+| road_city_vru_01 | `outputs/videos/road_city_vru_01_tracked_stable_warning.mp4` |
+
+### 5. 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `scripts/track_video.py` | 重写：新增稳定风险过滤逻辑、累计计数、STABLE 标签、横幅优先级 |
+| `utils/warning_utils.py` | `draw_risk_vehicle_boxes` / `draw_risk_vru_boxes` 新增 `label_prefix` 参数 |
+| `README.md` | 更新跟踪章节：稳定风险说明、新统计表、横幅优先级扩展 |
+| `PROJECT_LOG.md` | 追加阶段 6 记录 |
+
+### 6. Git 提交
+
+```
+feat: add track-based stable risk filtering
+```
+
+### 7. 当前局限
+
+- 稳定阈值 5 帧为经验值，不同场景可能需要调整
+- 持续跟踪丢失后重新出现的同一车辆会产生新 ID，需从 0 重新累计
+- 未使用滑动窗口 / 迟滞阈值（仅累计帧数判定，不做闪烁平滑）
+- 稳定横幅和原始横幅共存时视觉信息量较大
+
+---
+
+## 明天从这里继续
+
+1. **时序平滑**：增加滑动窗口 / 迟滞阈值，减少"进入→退出→进入"的临界闪烁
+2. **风险梯形区域重设计**（当前高预警率的核心瓶颈，稳定过滤只解决了小部分问题）
+3. **车辆 + VRU 同时场景**：仍缺少同时含两类目标的测试视频
+4. 后续方向：轨迹线绘制、TTC 估计、多场景验证集

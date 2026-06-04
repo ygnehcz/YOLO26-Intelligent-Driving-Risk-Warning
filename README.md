@@ -14,6 +14,7 @@
 - [x] 已完成 VRU 风险阈值校准（0.06 → 0.10，经实景视频验证）
 - [x] 已完成 ByteTrack 多目标跟踪与 Track ID 标注
 - [x] 已完成风险目标持续帧数统计
+- [x] 已完成基于 Track ID 的稳定风险过滤（>= 5 帧）
 
 ## 项目结构
 
@@ -70,29 +71,35 @@ python scripts/predict_video.py
 | 主要验证 | person / bicycle / motorcycle 检测，RISK VRU 标记，VRU bbox height ratio >= 0.10 的校准阈值 |
 | 输出 | `outputs/videos/road_city_vru_01_multi_risk_warning_vru010.mp4` |
 
-## 多目标跟踪
+## 多目标跟踪与稳定风险过滤
 
-使用 ByteTrack 为每个检测目标分配稳定 Track ID，支持风险目标持续帧数统计。
+使用 ByteTrack 为每个检测目标分配稳定 Track ID，并通过累计风险帧数实现稳定风险过滤，减少单帧误检和短暂闪烁。
+
+**稳定风险判定**：同一 Track ID 在风险区累计帧数 >= `STABLE_RISK_MIN_FRAMES`（默认 5）时，触发稳定风险预警。
 
 ```bash
-# 运行跟踪（默认使用 road_drive_01.mp4）
+# 运行跟踪（默认使用 road_drive_01.mp4，含稳定风险过滤）
 python scripts/track_video.py
 
 # 指定输入/输出
-python scripts/track_video.py --input data/test_videos/road_city_vru_01.mp4 --output outputs/videos/road_city_vru_01_tracked.mp4
+python scripts/track_video.py --input data/test_videos/road_city_vru_01.mp4 --output outputs/videos/road_city_vru_01_tracked_stable_warning.mp4
 ```
 
 跟踪输出视频中：
 - 绿色框 + `class ID:#` — 普通目标
-- 红色粗框 + `RISK VEHICLE` — 风险车辆
-- 品红粗框 + `RISK VRU` — 风险 VRU
+- 红色粗框 + `RISK VEHICLE` — 车辆风险（未达稳定阈值）
+- 品红粗框 + `RISK VRU` — VRU 风险（未达稳定阈值）
+- 红色粗框 + `STABLE RISK VEHICLE` — 稳定车辆风险
+- 品红粗框 + `STABLE RISK VRU` — 稳定 VRU 风险
 
-### 跟踪统计
+### 跟踪统计（含稳定过滤）
 
-| 测试视频 | 帧数 | 唯一 ID 数 | 车辆风险帧 | VRU 风险帧 | 风险占比 |
-|----------|------|-----------|-----------|-----------|----------|
-| road_drive_01.mp4 | 722 | 1 | 502 | 0 | 69.5% |
-| road_city_vru_01.mp4 | 1800 | 316 | 0 | 1724 | 95.8% |
+| 测试视频 | 帧数 | ID 数 | 原始车辆风险 | 原始 VRU 风险 | 稳定车辆风险 | 稳定 VRU 风险 | 原始→稳定 |
+|----------|------|-------|-------------|--------------|-------------|--------------|-----------|
+| road_drive_01.mp4 | 722 | 1 | 502 (69.5%) | 0 | 498 (69.0%) | 0 | −4 帧 |
+| road_city_vru_01.mp4 | 1800 | 316 | 0 | 1724 (95.8%) | 0 | 1687 (93.7%) | −37 帧 |
+
+稳定过滤有效移除了每个目标首次出现的前 4 帧（累计未达阈值）和短命 ID（< 5 帧）的瞬时噪声。
 
 ## 风险预警规则
 
@@ -124,3 +131,17 @@ python scripts/track_video.py --input data/test_videos/road_city_vru_01.mp4 --ou
 
 - 车辆风险框：红色 (Red) + `RISK VEHICLE` 标签
 - VRU 风险框：品红色 (Magenta) + `RISK VRU` 标签
+- 稳定车辆风险框：红色 (Red) + `STABLE RISK VEHICLE` 标签
+- 稳定 VRU 风险框：品红色 (Magenta) + `STABLE RISK VRU` 标签
+
+### 横幅优先级
+
+| 条件 | 横幅文案 |
+|------|----------|
+| 稳定车辆 + 稳定 VRU 同时存在 | STABLE WARNING: VEHICLE AND VRU RISK |
+| 仅稳定车辆 | STABLE WARNING: VEHICLE RISK |
+| 仅稳定 VRU | STABLE WARNING: VRU RISK |
+| 原始车辆 + 原始 VRU（未达稳定） | WARNING: VEHICLE AND VRU IN RISK ZONE |
+| 仅原始车辆 | WARNING: VEHICLE IN RISK ZONE |
+| 仅原始 VRU | WARNING: VRU IN RISK ZONE |
+| 无风险 | 不显示 |
