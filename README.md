@@ -12,6 +12,8 @@
 - [x] 已完成风险预警逻辑校准（增加近距视觉约束：bbox 高度比阈值）
 - [x] 已完成弱势交通参与者（VRU）风险提示
 - [x] 已完成 VRU 风险阈值校准（0.06 → 0.10，经实景视频验证）
+- [x] 已完成 ByteTrack 多目标跟踪与 Track ID 标注
+- [x] 已完成风险目标持续帧数统计
 
 ## 项目结构
 
@@ -20,6 +22,7 @@
 │   └── test_videos/          # 测试视频（不入库）
 ├── scripts/
 │   ├── predict_video.py      # 逐帧视频推理脚本（主入口）
+│   ├── track_video.py         # ByteTrack 多目标跟踪 + 风险预警脚本
 │   ├── extract_frames.py     # 帧抽取工具
 │   └── analyze_samples.py    # 抽样帧分析工具
 ├── utils/
@@ -66,6 +69,30 @@ python scripts/predict_video.py
 | 用途 | 验证 VRU 风险提示 |
 | 主要验证 | person / bicycle / motorcycle 检测，RISK VRU 标记，VRU bbox height ratio >= 0.10 的校准阈值 |
 | 输出 | `outputs/videos/road_city_vru_01_multi_risk_warning_vru010.mp4` |
+
+## 多目标跟踪
+
+使用 ByteTrack 为每个检测目标分配稳定 Track ID，支持风险目标持续帧数统计。
+
+```bash
+# 运行跟踪（默认使用 road_drive_01.mp4）
+python scripts/track_video.py
+
+# 指定输入/输出
+python scripts/track_video.py --input data/test_videos/road_city_vru_01.mp4 --output outputs/videos/road_city_vru_01_tracked.mp4
+```
+
+跟踪输出视频中：
+- 绿色框 + `class ID:#` — 普通目标
+- 红色粗框 + `RISK VEHICLE` — 风险车辆
+- 品红粗框 + `RISK VRU` — 风险 VRU
+
+### 跟踪统计
+
+| 测试视频 | 帧数 | 唯一 ID 数 | 车辆风险帧 | VRU 风险帧 | 风险占比 |
+|----------|------|-----------|-----------|-----------|----------|
+| road_drive_01.mp4 | 722 | 1 | 502 | 0 | 69.5% |
+| road_city_vru_01.mp4 | 1800 | 316 | 0 | 1724 | 95.8% |
 
 ## 风险预警规则
 

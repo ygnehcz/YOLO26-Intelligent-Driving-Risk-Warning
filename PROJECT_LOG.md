@@ -616,3 +616,115 @@ docs: describe test videos and validation scenarios
    - ByteTrack 多目标跟踪（车辆/VRU ID 稳定追踪 + TTC 估计）
    - 或预警时序稳定性优化（滑动窗口 / 迟滞阈值，减少临界帧闪烁）
 5. 测试视频和输出视频均不进入版本控制（`.gitignore` 已配置）
+
+---
+
+## 2026-06-04（续）：阶段 5 — ByteTrack 多目标跟踪与目标 ID 标注
+
+### 1. 功能目标
+
+在 YOLO26 检测 + 风险预警基础上，集成 ByteTrack 多目标跟踪：
+- 给每个目标（车辆/行人/自行车/摩托车）分配稳定 Track ID
+- 输出视频中显示 ID
+- 统计每个风险目标的持续帧数
+- 为后续时序预警平滑和持续风险判定打基础
+
+### 2. 实现方案
+
+#### 2.1 新增脚本
+
+`scripts/track_video.py` — 基于 `model.track()` 的独立跟踪脚本。
+
+- 使用 `model.track(frame, persist=True, tracker="bytetrack.yaml")`
+- 支持 `--model` / `--input` / `--output` / `--tracker` 参数
+- 保持原视频分辨率、FPS、总帧数
+
+#### 2.2 视觉层次
+
+| 类型 | 框颜色 | 标签 |
+|------|--------|------|
+| 普通目标 | 绿色 | `class_name ID:#` |
+| 风险车辆 | 红色粗框 | `RISK VEHICLE (class_name)` |
+| 风险 VRU | 品红粗框 | `RISK VRU (class_name)` |
+
+风险目标跳过绿色框，由专用函数绘制醒目标记。
+
+#### 2.3 代码复用
+
+- 风险判定逻辑完全复用 `utils/warning_utils.py`（`detect_risk_targets` 等）
+- `detect_risk_targets` 返回值新增可选 `track_id` 字段，兼容旧调用方
+- `draw_risk_zone` / `draw_warning_banner` / `draw_risk_vehicle_boxes` / `draw_risk_vru_boxes` 全部复用
+
+### 3. 运行统计
+
+#### road_drive_01.mp4（车辆场景）
+
+| 指标 | 数值 |
+|------|------|
+| 总帧数 | 722 |
+| 唯一 Track ID 数 | 1 |
+| 车辆风险预警帧数 | 502 |
+| VRU 风险预警帧数 | 0 |
+| 任一风险预警占比 | 69.5% |
+| 风险车辆 | ID 1: 502 帧 |
+
+与 predict_video.py 结果完全一致，确认无回归。
+
+#### road_city_vru_01.mp4（VRU 场景）
+
+| 指标 | 数值 |
+|------|------|
+| 总帧数 | 1800 |
+| 唯一 Track ID 数 | 316 |
+| 车辆风险预警帧数 | 0 |
+| VRU 风险预警帧数 | 1724 |
+| 任一风险预警占比 | 95.8% |
+
+VRU 风险目标中，持续帧数突出的 ID：
+- ID 2253: 290 帧（出现最长）
+- ID 618: 256 帧
+- ID 1801: 248 帧
+- ID 232: 175 帧
+- ID 2667: 172 帧
+
+VRU 预警帧 1724 vs predict 模式 1730（差 6 帧，0.3%），差异来自 tracking 模式对检测框的微小变化。
+
+### 4. 输出视频
+
+| 视频 | 输出路径 |
+|------|----------|
+| road_drive_01 | `outputs/videos/road_drive_01_tracked.mp4` |
+| road_city_vru_01 | `outputs/videos/road_city_vru_01_tracked.mp4` |
+
+### 5. 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `scripts/track_video.py` | 新增：ByteTrack 多目标跟踪脚本 |
+| `utils/warning_utils.py` | `detect_risk_targets` 返回值新增可选 `track_id` 字段 |
+| `README.md` | 新增多目标跟踪章节 + 跟踪统计表 + 进度更新 |
+| `PROJECT_LOG.md` | 追加阶段 5 记录 |
+
+### 6. Git 提交
+
+```
+feat: add ByteTrack multi-object tracking
+```
+
+### 7. 当前局限
+
+- 不绘制轨迹线（当前只显示 ID）
+- VRU 场景中 ID 较多（316 个），部分 ID 仅出现 1-2 帧（ByteTrack ID 碎片化）
+- 行人密集场景下 ID Switch 较频繁，稳定跟踪长距离行人仍有挑战
+- 未区分 risk persistence（持续风险时长），仅做了帧数统计
+
+---
+
+## 明天从这里继续
+
+1. **利用 Track ID 实现时序平滑**：
+   - 对风险目标设置最小持续帧数阈值（如 ≥ 5 帧才触发预警），减少瞬间误报
+   - 或使用滑动窗口 / 迟滞阈值减少临界帧处的预警闪烁
+2. **风险梯形区域重设计**（当前高预警率的核心瓶颈）
+3. **寻找同时含车辆 + VRU 的视频**，验证"车辆+VRU 同时预警"横幅路径
+4. 后续可增加轨迹线绘制、TTC 估计等高级功能

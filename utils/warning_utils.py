@@ -73,7 +73,7 @@ def detect_risk_targets(result, class_names: set, polygon: list,
         min_bbox_height_ratio: 最小 bbox 高度占比阈值
 
     Returns:
-        list[dict]: 每个元素包含 box (x1,y1,x2,y2), class_name, confidence
+        list[dict]: 每个元素包含 box (x1,y1,x2,y2), class_name, confidence, track_id（可选）
     """
     targets = []
     boxes = result.boxes
@@ -96,11 +96,17 @@ def detect_risk_targets(result, class_names: set, polygon: list,
         if bbox_h / frame_height < min_bbox_height_ratio:
             continue
 
-        targets.append({
+        target = {
             "box": (int(x1), int(y1), int(x2), int(y2)),
             "class_name": cls_name,
             "confidence": float(box.conf[0]),
-        })
+        }
+
+        # 若结果包含追踪 ID，一并附上
+        if box.id is not None:
+            target["track_id"] = int(box.id[0])
+
+        targets.append(target)
 
     return targets
 
