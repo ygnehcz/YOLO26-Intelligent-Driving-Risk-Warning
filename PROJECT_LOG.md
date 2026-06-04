@@ -918,6 +918,53 @@ feat: add trajectory visualization for tracked objects
 
 - 轨迹线使用统一粗细，未做淡入淡出效果
 - 密集人群场景（316 个 ID）中轨迹线可能杂乱
+
+---
+
+## 2026-06-04（续）：阶段 9A — 轨迹线版本截图强化 README
+
+### 1. 展示图片更新
+
+从阶段 8 轨迹线输出视频中重新抽取 4 张效果图，替换旧的阶段 7 截图：
+
+| 新图片 | 来源 | 帧 | 内容 |
+|--------|------|-----|------|
+| `assets/vehicle_traj_risk_01.jpg` | road_drive_01 traj | 550 | STABLE WARNING + 红色轨迹线 + Track ID |
+| `assets/vehicle_traj_risk_02.jpg` | road_drive_01 traj | 250 | 绿色框 + 浅青绿轨迹 + 红线车辆标记 |
+| `assets/vru_traj_risk_01.jpg` | road_city_vru_01 traj | 1200 | STABLE WARNING + 品红 VRU 轨迹 |
+| `assets/vru_traj_risk_02.jpg` | road_city_vru_01 traj | 1500 | 多目标轨迹 + 品红框 + 绿色 ID 框 |
+
+旧图片 `vehicle_risk_0*.jpg` / `vru_risk_0*.jpg`（4 张）已删除。
+
+### 2. README 更新
+
+- 效果展示区全部替换为轨迹线版本截图
+- 图片说明增加轨迹线描述
+- 项目结构更新为新的 asset 文件名
+- 展示内容已覆盖：车辆/VRU 风险、Track ID、稳定风险、轨迹线
+
+### 3. 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `assets/*.jpg` | 删除 4 张旧图，新增 4 张轨迹线版截图 |
+| `README.md` | 效果展示全部更新为轨迹线版本；项目结构同步 |
+| `PROJECT_LOG.md` | 追加阶段 9A 记录 |
+
+### 4. Git 提交
+
+```
+docs: update visual results with trajectory screenshots
+```
+
+---
+
+## 明天从这里继续
+
+1. **时序平滑**：增加滑动窗口 / 迟滞阈值，减少临界闪烁
+2. **风险梯形区域重设计**（当前高预警率的核心瓶颈）
+3. **车辆 + VRU 同时场景**：寻找同时含两类目标的测试视频
+4. 后续可做：TTC 估计、GUI 可视化、车道线检测
 - 仅对当前可见目标绘制轨迹，消失后轨迹随之消失
 - 轨迹点使用 bbox 底边中心近似地面位置，非真实三维投影
 

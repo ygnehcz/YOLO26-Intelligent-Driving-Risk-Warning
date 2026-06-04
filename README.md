@@ -4,25 +4,25 @@
 
 ## 效果展示
 
-### 车辆风险预警（快速路跟车场景）
+### 车辆风险预警 + 轨迹线（快速路跟车场景）
 
-![Vehicle Risk 01](assets/vehicle_risk_01.jpg)
+![Vehicle Traj Risk 01](assets/vehicle_traj_risk_01.jpg)
 
-> STABLE WARNING: VEHICLE RISK — 前方车辆落入风险梯形区域，触发稳定车辆风险预警。
+> STABLE WARNING + 红色轨迹线 — 前方车辆落入风险梯形区域，触发稳定风险预警。轨迹线显示车辆 ID 1 的运动历史。
 
-![Vehicle Risk 02](assets/vehicle_risk_02.jpg)
+![Vehicle Traj Risk 02](assets/vehicle_traj_risk_02.jpg)
 
-> 绿色框显示 Track ID，红色 STABLE RISK VEHICLE 标记已确认的风险车辆。
+> 绿色 Track ID 框 + 浅青绿轨迹线 — 非风险目标以绿色标注，底部中心点轨迹清晰可见。
 
-### VRU 风险预警（城市行人/自行车场景）
+### VRU 风险预警 + 轨迹线（城市行人/自行车场景）
 
-![VRU Risk 01](assets/vru_risk_01.jpg)
+![VRU Traj Risk 01](assets/vru_traj_risk_01.jpg)
 
-> STABLE WARNING: VRU RISK — 多个行人/骑行者被稳定追踪并标记为 VRU 风险。
+> STABLE WARNING + 品红轨迹线 — 行人/自行车被稳定追踪，风险目标显示 STABLE RISK VRU 标签和品红色轨迹。
 
-![VRU Risk 02](assets/vru_risk_02.jpg)
+![VRU Traj Risk 02](assets/vru_traj_risk_02.jpg)
 
-> 品红色 STABLE RISK VRU 标记行人，绿色框显示 Track ID，红色风险区域与黄色正常区域对比。
+> 多目标轨迹可视化 — 绿色框显示 Track ID，浅青绿轨迹展示行人运动路径，品红框标记风险 VRU。
 
 ---
 
@@ -63,10 +63,10 @@ flowchart LR
 
 ```
 ├── assets/                         # README 展示图片（入 Git）
-│   ├── vehicle_risk_01.jpg
-│   ├── vehicle_risk_02.jpg
-│   ├── vru_risk_01.jpg
-│   └── vru_risk_02.jpg
+│   ├── vehicle_traj_risk_01.jpg
+│   ├── vehicle_traj_risk_02.jpg
+│   ├── vru_traj_risk_01.jpg
+│   └── vru_traj_risk_02.jpg
 ├── data/
 │   └── test_videos/                # 测试视频（不入库）
 ├── scripts/
