@@ -45,6 +45,28 @@ python scripts/predict_video.py
 
 输出视频将保存在 `outputs/videos/` 目录下。
 
+## 测试视频
+
+项目当前使用两个代表性测试视频，分别验证车辆风险预警与 VRU 风险提示。测试视频和输出视频因体积较大，已通过 `.gitignore` 排除，不上传 GitHub。
+
+### 1. road_drive_01.mp4 — 车辆风险验证
+
+| 属性 | 说明 |
+|------|------|
+| 场景 | 快速路 / 跟车道路场景 |
+| 用途 | 验证车辆风险预警逻辑 |
+| 主要验证 | car / bus / truck 检测，前方风险梯形区域，车辆 bbox height ratio >= 0.12 的近距视觉约束 |
+| 输出 | `outputs/videos/road_drive_01_multi_risk_warning.mp4` |
+
+### 2. road_city_vru_01.mp4 — VRU 风险验证
+
+| 属性 | 说明 |
+|------|------|
+| 场景 | 城市道路 / 行人 / 自行车 / 摩托车场景 |
+| 用途 | 验证 VRU 风险提示 |
+| 主要验证 | person / bicycle / motorcycle 检测，RISK VRU 标记，VRU bbox height ratio >= 0.10 的校准阈值 |
+| 输出 | `outputs/videos/road_city_vru_01_multi_risk_warning_vru010.mp4` |
+
 ## 风险预警规则
 
 ### 两类风险目标

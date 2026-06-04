@@ -576,3 +576,43 @@ refine: calibrate VRU risk warning threshold
    - ByteTrack 多目标跟踪（车辆/VRU ID 稳定追踪 + TTC 估计）
    - 或预警时序稳定性优化（滑动窗口 / 迟滞阈值，减少临界帧闪烁）
 4. `road_city_vru_01.mp4` 已作为项目 VRU 验证视频入库
+
+---
+
+## 2026-06-04（续）：阶段 4.7 — 测试样例说明整理
+
+### 1. 当前测试样例
+
+项目已形成两个代表性测试样例，覆盖车辆风险与 VRU 风险两个维度：
+
+| 视频 | 场景 | 验证目标 | 输出 |
+|------|------|----------|------|
+| `road_drive_01.mp4` | 快速路 / 跟车 | 车辆风险预警 | `road_drive_01_multi_risk_warning.mp4` |
+| `road_city_vru_01.mp4` | 城市道路 / 行人自行车 | VRU 风险提示 | `road_city_vru_01_multi_risk_warning_vru010.mp4` |
+
+### 2. 修改文件
+
+| 文件 | 变更 |
+|------|------|
+| `README.md` | 新增 Test Videos 小节 |
+| `PROJECT_LOG.md` | 追加阶段 4.7 记录 |
+
+### 3. Git 提交
+
+```
+docs: describe test videos and validation scenarios
+```
+
+---
+
+## 明天从这里继续
+
+1. 后续 ByteTrack 多目标跟踪阶段应优先基于这两个视频继续测试
+2. **当前高预警率瓶颈在风险梯形区域形状**，而非阈值。考虑：
+   - 缩窄梯形上边宽度（减小 0.38W~0.62W 的范围）
+   - 或提高梯形上边界 Y（从 0.58H 提高）
+3. **寻找同时含车辆 + VRU 的视频**，验证"车辆+VRU 同时预警"横幅路径
+4. 如果预警逻辑整体满意，可进入：
+   - ByteTrack 多目标跟踪（车辆/VRU ID 稳定追踪 + TTC 估计）
+   - 或预警时序稳定性优化（滑动窗口 / 迟滞阈值，减少临界帧闪烁）
+5. 测试视频和输出视频均不进入版本控制（`.gitignore` 已配置）
