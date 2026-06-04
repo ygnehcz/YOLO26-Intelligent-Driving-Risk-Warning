@@ -54,6 +54,7 @@ flowchart LR
 - **VRU 风险提示** — 行人/自行车/摩托车独立判定，视觉区分品红色标记
 - **ByteTrack 多目标跟踪** — 为每个目标分配稳定 Track ID
 - **稳定风险过滤** — 基于 Track ID 累计帧数过滤单帧误检和短暂闪烁
+- **轨迹线可视化** — 展示目标最近 30 帧运动轨迹，风险目标使用区分颜色
 - **统计信息输出** — 总帧数、风险帧数、风险占比、各 ID 持续帧数
 
 ---
@@ -70,7 +71,7 @@ flowchart LR
 │   └── test_videos/                # 测试视频（不入库）
 ├── scripts/
 │   ├── predict_video.py            # 逐帧检测 + 风险预警（主入口）
-│   ├── track_video.py              # ByteTrack 跟踪 + 稳定风险过滤
+│   ├── track_video.py              # ByteTrack 跟踪 + 轨迹线 + 稳定风险过滤
 │   ├── extract_frames.py           # 帧抽取工具
 │   └── analyze_samples.py          # 抽样帧分析工具
 ├── utils/
@@ -176,7 +177,7 @@ python scripts/track_video.py \
 
 ## 后续计划
 
-- [ ] 轨迹线绘制（基于 Track ID 历史位置）
+- [x] 轨迹线绘制（基于 Track ID 历史位置）
 - [ ] 预警迟滞 / 滑动窗口平滑（减少临界帧闪烁）
 - [ ] 风险梯形区域自适应标定
 - [ ] 更多道路场景测试视频
@@ -196,3 +197,4 @@ python scripts/track_video.py \
 - [x] ByteTrack 多目标跟踪与 Track ID 标注
 - [x] 基于 Track ID 的稳定风险过滤（>= 5 帧）
 - [x] 项目展示与 README 强化
+- [x] 轨迹线绘制与运动轨迹可视化
