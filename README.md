@@ -186,6 +186,10 @@ python scripts/track_video.py \
 
 ---
 
+## 项目总结
+
+完整项目总结、简历描述和面试讲解稿见 **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)**。
+
 ## 当前进度
 
 - [x] YOLO26 基础图片推理验证
