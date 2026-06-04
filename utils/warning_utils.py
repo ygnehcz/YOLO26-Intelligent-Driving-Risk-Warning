@@ -14,7 +14,7 @@ VRU_CLASSES = {"person", "bicycle", "motorcycle"}
 
 # ── 预警约束阈值（独立可调）────────────────────────────────────────────────────
 MIN_VEHICLE_BBOX_HEIGHT_RATIO = 0.12   # 车辆：较严格，抑制远处小车
-MIN_VRU_BBOX_HEIGHT_RATIO = 0.06       # VRU：较宽松，行人/骑行者目标更小
+MIN_VRU_BBOX_HEIGHT_RATIO = 0.10       # VRU：适度收紧，过滤远处小目标
 
 
 def get_risk_zone_polygon(frame_width: int, frame_height: int) -> list:
